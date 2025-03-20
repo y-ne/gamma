@@ -6,6 +6,11 @@ var conn: ?*c.PGconn = null;
 var routes: std.StringHashMap(zap.HttpRequestFn) = undefined;
 
 fn on_request_check(r: zap.Request) void {
+    if (conn == null or c.PQstatus(conn.?) != c.CONNECTION_OK) {
+        r.sendBody("Database unavailable") catch return;
+        return;
+    }
+
     const res = c.PQexec(conn.?, "SELECT version();");
     defer c.PQclear(res);
 
@@ -27,18 +32,20 @@ fn dispatch_routes(r: zap.Request) void {
     r.sendBody("404 Not Found") catch return;
 }
 
-fn setup_routes(a: std.mem.Allocator) !void {
-    routes = std.StringHashMap(zap.HttpRequestFn).init(a);
+fn setup_routes() !void {
     try routes.put("/check", on_request_check);
 }
 
 pub fn main() !void {
     conn = c.PQconnectdb("host=localhost port=54322 user=postgres password=postgres dbname=origami");
     if (conn == null or c.PQstatus(conn.?) != c.CONNECTION_OK) {
-        return error.ConnectionFailed;
+        std.debug.print("Database connection failed\n", .{});
+        conn = null;
     }
 
-    try setup_routes(std.heap.page_allocator);
+    const allocator = std.heap.page_allocator;
+    routes = std.StringHashMap(zap.HttpRequestFn).init(allocator);
+    try setup_routes();
 
     var listener = zap.HttpListener.init(.{
         .port = 3000,
@@ -49,5 +56,6 @@ pub fn main() !void {
 
     zap.start(.{ .threads = 2, .workers = 2 });
 
-    defer c.PQfinish(conn.?);
+    routes.deinit();
+    if (conn) |db_conn| c.PQfinish(db_conn);
 }
