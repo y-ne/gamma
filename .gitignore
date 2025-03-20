@@ -1,0 +1,29 @@
+# Zig build artifacts
+.zig-cache/
+zig-out/
+*.o
+*.a
+*.so
+*.dylib
+*.exe
+
+# Zig package manager files (Zig 0.13+)
+.zigmod/
+zigmod.lock
+zigmod-deps/
+
+# Dependency manager (future versions)
+zig-deps/
+
+# Logs & temporary files
+*.log
+*.tmp
+*.swp
+*.swo
+
+# macOS system files
+.DS_Store
+._*
+
+# VSCode settings
+.vscode/
